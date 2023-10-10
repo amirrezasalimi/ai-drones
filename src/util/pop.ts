@@ -1,18 +1,26 @@
 import NeuralNetwork from "./nn";
 
 class Species {
+    maxUnimprovedGenerations: number = 10
     notImprovedGenerations: number = 0
-    bestFitness: number = 0
-    genomes: NeuralNetwork[] = []
+    genome: NeuralNetwork
+    constructor({
+        genome
+    }: {
+        genome: NeuralNetwork
+    }) {
+        this.genome = genome;
+    }
 }
 
 class Population {
-    // species: Species[] = []
+    maxSpecies: number = 10
+    species: Species[] = []
     genomes: NeuralNetwork[] = []
     generation: number = 0
     populationSize: number = 0
     brain: NeuralNetwork;
-    best:NeuralNetwork;
+    best: NeuralNetwork;
     constructor({
         populationSize,
         brain
@@ -25,14 +33,16 @@ class Population {
         for (let i = 0; i < populationSize; i++) {
             this.genomes.push(brain.clone());
         }
-        this.best = this.genomes[0];
+        this.best = this.genomes[0].clone();
     }
 
     nextGeneration() {
         // sort by fitness
         this.genomes.sort((a, b) => b.fitness - a.fitness);
-        this.best = this.genomes[0].clone();
-        this.best.fitness = this.genomes[0].fitness;
+        if (this.genomes[0].fitness > this.best.fitness) {
+            this.best = this.genomes[0].clone();
+            this.best.fitness = this.genomes[0].fitness;
+        }
         // get top 30%
         const top30 = this.genomes.slice(0, Math.floor(this.genomes.length * 0.3));
 

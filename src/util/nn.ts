@@ -41,6 +41,7 @@ class NeuralNetwork {
     }
     public toJson() {
         return {
+            fitnes: this.fitness,
             layers: this.layers,
             weights: this.weights,
             biases: this.biases,
@@ -50,6 +51,7 @@ class NeuralNetwork {
         const nn = new NeuralNetwork(json.layers);
         nn.weights = json.weights;
         nn.biases = json.biases;
+        nn.fitness = json.fitness;
         return nn;
     }
     public mutate(rate: number, amount: number = 0.1): void {
@@ -157,7 +159,15 @@ class NeuralNetwork {
         return this.feedForward(inputData);
     }
 
-    visualize(p5: P5) {
+    visualize({
+        p5,
+        size = [100, 100],
+        position
+    }: {
+        p5: P5,
+        size?: [number, number],
+        position: P5.Vector,
+    }) {
         const neuronPos: Record<string, number[]> = {};
 
 
@@ -165,8 +175,8 @@ class NeuralNetwork {
         for (let i = 0; i < this.layers.length; i++) {
             const layerSize = this.layers[i];
             for (let j = 0; j < layerSize; j++) {
-                const x = (p5.width / (this.layers.length + 1)) * (i + 1);
-                const y = (p5.height / (layerSize + 1)) * (j + 1);
+                const x = position.x + (size[0] / (this.layers.length + 1)) * (i + 1);
+                const y = position.y + (size[1] / (layerSize + 1)) * (j + 1);
                 neuronPos[`${i},${j}`] = [x, y];
             }
         }
@@ -185,7 +195,7 @@ class NeuralNetwork {
                     const x2 = neuronPos[`${i + 1},${j}`][0];
                     const y2 = neuronPos[`${i + 1},${j}`][1];
                     // p5.stroke(color);
-                    p5.strokeWeight(p5.map(Math.abs(weight), 0, 1, 1, 5));
+                    p5.strokeWeight(p5.map(Math.abs(weight), 0, 1, 0.1,3));
                     p5.line(x1, y1, x2, y2);
                 }
             }
@@ -199,7 +209,7 @@ class NeuralNetwork {
                 const x = neuronPos[`${i},${j}`][0];
                 const y = neuronPos[`${i},${j}`][1];
                 p5.fill(255);
-                const neuronSize = p5.width / 35;
+                const neuronSize = size[0] / 35;
 
                 p5.rect(x - neuronSize / 2, y - neuronSize / 2, neuronSize, neuronSize);
             }

@@ -6,23 +6,26 @@ import Population from './util/pop';
 
 const game = (p: p5) => {
 
+    let target = p.createVector(p.width / 2, 50);
     let drones: Drone[] = [];
     // 
-    let baseBrain = new NeuralNetwork([4, 8,8, 2]);
-    
+    let baseBrain = new NeuralNetwork([6, 8, 8, 2]);
+
     const json = localStorage.getItem("best__brain");
     if (json) {
-        baseBrain = NeuralNetwork.fromJson(JSON.parse(json));
+        // baseBrain = NeuralNetwork.fromJson(JSON.parse(json));
     }
     const pop = new Population({
         brain: baseBrain,
-        populationSize: 100,
+        populationSize: 350,
     })
     const nextGen = () => {
         pop.nextGeneration();
 
+
         // save best brain
         localStorage.setItem("best__brain", JSON.stringify(pop.best.toJson()));
+
 
         drones = [];
         pop.genomes.forEach((genome, i) => {
@@ -47,6 +50,7 @@ const game = (p: p5) => {
 
         nextGen();
     };
+    const targetSize = 50;
 
     p.draw = () => {
         p.background(10);
@@ -64,19 +68,50 @@ const game = (p: p5) => {
         for (let i = 0; i < drones.length; i++) {
             const drone = drones[i];
             if (drone.dead) continue;
-
-            drone.think();
+            const _distanceToTarget = distanceToTarget(drone);
+            drone.think({
+                distanceToTarget: _distanceToTarget,
+            });
             drone.update();
             drone.display();
             if (isDroneOut(drone)) {
-                drone.kill()
+                drone.kill();
+            }
+            if (isDroneTouchingTarget(drone)) {
+                drone.win();
             }
         }
         // if all drones are dead
         if (drones.every(drone => drone.dead)) {
             nextGen();
+            // random target pos
+            target = p.createVector(p.random(0, p.width), p.random(0, p.height));
         }
+
+        // draw target circle
+        p.fill("red");
+        p.circle(target.x, target.y, targetSize);
+
+        const size=200;
+        // visualize best drone
+        pop.best.visualize({
+            p5: p,
+            size: [size, size],
+            position: p.createVector(p.width-size, p.height-size),
+        });
+
     };
+    const distanceToTarget = (drone: Drone) => {
+        const distance = p.dist(drone.position.x, drone.position.y, target.x, target.y);
+        return distance;
+    }
+    const isDroneTouchingTarget = (drone: Drone) => {
+        const distance = p.dist(drone.position.x, drone.position.y, target.x, target.y);
+        if (distance < targetSize) {
+            return true;
+        }
+        return false;
+    }
     const isDroneOut = (drone: Drone) => {
         // if out of screen
         if (drone.position.x < 0 || drone.position.x > p.width || drone.position.y < 0 || drone.position.y > p.height) {
@@ -86,6 +121,10 @@ const game = (p: p5) => {
     }
 
     let forceActive: boolean = false;
+    p.mouseClicked = () => {
+
+        target = p.createVector(p.mouseX, p.mouseY);
+    }
     p.keyPressed = () => {
         const drone = drones[0];
         // space
@@ -98,7 +137,6 @@ const game = (p: p5) => {
                 drone.rightFirePower = 100;
             }
             forceActive = !forceActive;
-
         }
         // left
         if (p.key === "a") {
@@ -116,7 +154,5 @@ const game = (p: p5) => {
         }
     }
 };
-
-
 
 export default game;

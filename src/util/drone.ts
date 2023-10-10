@@ -25,6 +25,7 @@ class Drone {
     brain: NeuralNetwork;
 
     dead: boolean = false;
+    fuel: number = 100;
     constructor({
         p,
         position,
@@ -62,27 +63,55 @@ class Drone {
         this.acceleration.add(f);
     }
 
-    think() {
-        const inputs = [
-            this.position.x,
-            this.position.y,
-            this.velocity.x,
-            this.velocity.y,
+    think({
+        distanceToTarget,
+    }: {
+        distanceToTarget: number
+    }) {
+
+        const { p, velocity, position, brain } = this;
+        // normalize
+        const x = p.map(position.x, 0, p.width, 0, 1);
+        const y = p.map(position.y, 0, p.height, 0, 1);
+        const _distanceToTarget = p.map(distanceToTarget, 0, p.width, 0, 1);
+        const vx = p.map(velocity.x, -10, 10, 0, 1);
+        const vy = p.map(velocity.y, -10, 10, 0, 1);
+        let inputs = [
+            this.fuel / 100,
+            x,
+            y,
+            _distanceToTarget,
+            vx,
+            vy,
         ]
-        const outputs = this.brain.predict(inputs);
+        // normalize
+
+        const outputs = brain.predict(inputs);
         // leftFirePower , rightFirePower map to 0 50
-        this.leftFirePower = this.p.map(outputs[0], 0, 1, 0, 50);
-        this.rightFirePower = this.p.map(outputs[1], 0, 1, 0, 50);
+        this.leftFirePower = p.map(outputs[0], 0, 1, 0, 50);
+        this.rightFirePower = p.map(outputs[1], 0, 1, 0, 50);
     }
     startTime = Date.now();
     kill() {
         this.dead = true;
         // score from 1 to Infinity
-        const score = (Date.now() - this.startTime);
-        this.brain.fitness = score;
+        this.brain.fitness = 0;
+    }
+    win() {
+        this.dead = true;
+        // fitness function with time + fuel remain, bad score is 0 , good score is more than 1
+        this.brain.fitness = 1 + (this.fuel / 100) + (1 / (Date.now() - this.startTime));
     }
     update() {
         const { p, leftFirePower, rightFirePower, acceleration, velocity } = this;
+
+        // decrease fuel based on power usage of fires
+        if (this.fuel > 0) {
+            this.fuel -= (leftFirePower + rightFirePower) / 100;
+        } else {
+            this.win();
+        }
+
         // Update velocity
         this.velocity.add(acceleration);
         // Apply damping to simulate air resistance
@@ -137,6 +166,14 @@ class Drone {
         p.fill("brown");
         p.rect(this.position.x + this.size[0] / 2, this.position.y - this.size[1] / 2, 10, 10);
 
+
+        // show fuel  , size based on size of drone
+        p.fill("white");
+        p.textSize(this.size[0] / 6);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.text(this.fuel.toFixed(2), this.position.x, this.position.y);
+
+        p.textAlign(p.LEFT, p.TOP);
     }
 }
 
