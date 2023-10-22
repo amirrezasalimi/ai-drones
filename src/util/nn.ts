@@ -1,14 +1,13 @@
 import P5 from "p5";
-// utils
 
 // -1 , 1
 const randWeight = () => Math.random() * 2 - 1;
 
 class NeuralNetwork {
-    public fitness: number = 0;
-    private layers: number[] = [];
-    private weights: number[][][] = [];
-    private biases: number[][] = [];
+    fitness: number = 0;
+    layers: number[] = [];
+    weights: number[][][] = [];
+    biases: number[][] = [];
 
     constructor(layerSizes: number[]) {
         if (layerSizes.length < 2) {
@@ -41,7 +40,7 @@ class NeuralNetwork {
     }
     public toJson() {
         return {
-            fitnes: this.fitness,
+            fitness: this.fitness,
             layers: this.layers,
             weights: this.weights,
             biases: this.biases,
@@ -54,6 +53,15 @@ class NeuralNetwork {
         nn.fitness = json.fitness;
         return nn;
     }
+    private mutateWeightWithRandom(currentWeight: number, n: number) {
+        // Generate a random mutation value within the range [-n, n]
+        const randomMutation = (Math.random() * 2 - 1) * n;
+
+        // Apply the mutation and ensure the weight remains within the range of -1 to 1
+        const newWeight = currentWeight + randomMutation;
+        return Math.max(-1, Math.min(1, newWeight));
+    }
+
     public mutate(rate: number, amount: number = 0.1): void {
         for (let i = 0; i < this.weights.length; i++) {
             const layerWeights = this.weights[i];
@@ -63,15 +71,15 @@ class NeuralNetwork {
                 for (let k = 0; k < layerWeights[j].length; k++) {
                     if (Math.random() < rate) {
                         // Apply mutation (uniform or Gaussian)
-                        const mutationValue = randWeight() * amount;
-                        layerWeights[j][k] += mutationValue;
+                        const mutationValue = this.mutateWeightWithRandom(layerWeights[j][k], amount);
+                        layerWeights[j][k] = mutationValue;
                     }
                 }
 
                 if (Math.random() < rate) {
                     // Apply mutation to biases (uniform or Gaussian)
-                    const mutationValue = randWeight() * amount
-                    layerBiases[j] += mutationValue;
+                    const mutationValue = this.mutateWeightWithRandom(layerBiases[j], amount);
+                    layerBiases[j] = mutationValue;
                 }
             }
         }
@@ -195,7 +203,7 @@ class NeuralNetwork {
                     const x2 = neuronPos[`${i + 1},${j}`][0];
                     const y2 = neuronPos[`${i + 1},${j}`][1];
                     // p5.stroke(color);
-                    p5.strokeWeight(p5.map(Math.abs(weight), 0, 1, 0.1,3));
+                    p5.strokeWeight(p5.map(Math.abs(weight), 0, 1, 0.05, 1));
                     p5.line(x1, y1, x2, y2);
                 }
             }
@@ -209,7 +217,7 @@ class NeuralNetwork {
                 const x = neuronPos[`${i},${j}`][0];
                 const y = neuronPos[`${i},${j}`][1];
                 p5.fill(255);
-                const neuronSize = size[0] / 35;
+                const neuronSize = size[0] / 35 / (this.layers.length + 1);
 
                 p5.rect(x - neuronSize / 2, y - neuronSize / 2, neuronSize, neuronSize);
             }

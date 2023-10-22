@@ -3,7 +3,7 @@ import DroneFire from './drone-fire';
 import NeuralNetwork from './nn';
 import { fanPower, gravity } from './constants';
 
-
+const maxFuel = 50;
 class Drone {
     p: p5;
     position: p5.Vector;
@@ -25,7 +25,7 @@ class Drone {
     brain: NeuralNetwork;
 
     dead: boolean = false;
-    fuel: number = 100;
+    fuel: number = maxFuel;
     constructor({
         p,
         position,
@@ -63,30 +63,83 @@ class Drone {
         this.acceleration.add(f);
     }
 
+    inputs(params: {
+        position_x: number,
+        position_y: number,
+        velocity_x: number,
+        velocity_y: number,
+        left_fire_power: number,
+        right_fire_power: number,
+        target_x: number,
+        target_y: number
+
+    }) {
+        // Return an array of input values for the genetic algorithm
+        return [params.position_x, params.position_y, params.velocity_x, params.velocity_y, params.left_fire_power, params.right_fire_power, params.target_x, params.target_y];
+    }
+
+    fitness({ position_x, position_y, velocity_x, velocity_y, target_x, target_y }: {
+        position_x: number,
+        position_y: number,
+        velocity_x: number,
+        velocity_y: number,
+        left_fire_power: number,
+        right_fire_power: number,
+        target_x: number,
+        target_y: number
+    }) {
+        // Calculate the Euclidean distance between the current drone position and the target position
+        const distanceToTarget = Math.sqrt((position_x - target_x) ** 2 + (position_y - target_y) ** 2);
+
+        // Calculate the difference in velocities (to encourage stability)
+        const velocityDifference = Math.abs(velocity_x - velocity_y);
+
+        // Calculate a score based on the distance to the target and velocity difference
+        // You may need to adjust the weights for distance and stability based on your game's requirements
+        const distanceWeight = 1.0;
+        const stabilityWeight = 0.2;
+
+        const fitnessScore = distanceWeight * (1 / (1 + distanceToTarget)) + stabilityWeight * (1 / (1 + velocityDifference));
+
+        // Return the fitness score to be maximized
+        return fitnessScore;
+    }
+
     think({
-        distanceToTarget,
+        target,
     }: {
-        distanceToTarget: number
+        target: p5.Vector,
+        targetDistance: number
     }) {
 
-        const { p, velocity, position, brain } = this;
-        // normalize
-        const x = p.map(position.x, 0, p.width, 0, 1);
-        const y = p.map(position.y, 0, p.height, 0, 1);
-        const _distanceToTarget = p.map(distanceToTarget, 0, p.width, 0, 1);
-        const vx = p.map(velocity.x, -10, 10, 0, 1);
-        const vy = p.map(velocity.y, -10, 10, 0, 1);
-        let inputs = [
-            this.fuel / 100,
-            x,
-            y,
-            _distanceToTarget,
-            vx,
-            vy,
-        ]
+        const { p, velocity, brain, position } = this;
         // normalize
 
-        const outputs = brain.predict(inputs);
+        const inputs = this.inputs({
+            position_x: position.x,
+            position_y: position.y,
+            velocity_x: velocity.x,
+            velocity_y: velocity.y,
+            left_fire_power: this.leftFirePower,
+            right_fire_power: this.rightFirePower,
+            target_x: target.x,
+            target_y: target.y,
+        })
+
+        // normalize
+
+        let inputs_norm = [
+            p.map(inputs[0], 0, p.width, 0, 1),
+            p.map(inputs[1], 0, p.height, 0, 1),
+            p.map(inputs[2], -10, 10, 0, 1),
+            p.map(inputs[3], -10, 10, 0, 1),
+            p.map(inputs[4], 0, 100, 0, 1),
+            p.map(inputs[5], 0, 100, 0, 1),
+            p.map(inputs[6], 0, p.width, 0, 1),
+            p.map(inputs[7], 0, p.height, 0, 1),
+        ]
+
+        const outputs = brain.predict(inputs_norm);
         // leftFirePower , rightFirePower map to 0 50
         this.leftFirePower = p.map(outputs[0], 0, 1, 0, 50);
         this.rightFirePower = p.map(outputs[1], 0, 1, 0, 50);
@@ -97,19 +150,42 @@ class Drone {
         // score from 1 to Infinity
         this.brain.fitness = 0;
     }
-    win() {
+    win({
+        target
+    }: {
+        targetDistance: number
+        target: p5.Vector
+    }) {
         this.dead = true;
-        // fitness function with time + fuel remain, bad score is 0 , good score is more than 1
-        this.brain.fitness = 1 + (this.fuel / 100) + (1 / (Date.now() - this.startTime));
+
+        this.brain.fitness = this.fitness({
+            position_x: this.position.x,
+            position_y: this.position.y,
+            velocity_x: this.velocity.x,
+            velocity_y: this.velocity.y,
+            left_fire_power: this.leftFirePower,
+            right_fire_power: this.rightFirePower,
+            target_x: target.x,
+            target_y: target.y,
+        });
     }
-    update() {
+    update({
+        targetDistance,
+        target
+    }: {
+        targetDistance: number
+        target: p5.Vector
+    }) {
         const { p, leftFirePower, rightFirePower, acceleration, velocity } = this;
 
         // decrease fuel based on power usage of fires
         if (this.fuel > 0) {
-            this.fuel -= (leftFirePower + rightFirePower) / 100;
+            this.fuel -= ((leftFirePower + rightFirePower) / maxFuel) / 14;
         } else {
-            this.win();
+            this.win({
+                targetDistance,
+                target
+            });
         }
 
         // Update velocity
